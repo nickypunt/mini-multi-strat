@@ -41,7 +41,7 @@ import numpy as np
 import pandas as pd
 
 from data import load_prices
-from pods import mean_reversion_pod, momentum_pod
+from pods import mean_reversion_pod, ml_pod, momentum_pod
 
 REPORTS = Path(__file__).resolve().parent.parent / "reports"
 
@@ -53,6 +53,7 @@ TRADING_DAYS = 252
 PODS = {
     "Momentum": momentum_pod,
     "Mean reversion": mean_reversion_pod,
+    "ML": ml_pod,
 }
 
 
@@ -140,7 +141,7 @@ def format_table(table: pd.DataFrame) -> pd.DataFrame:
 # Chart
 # ---------------------------------------------------------------------------
 
-COLORS = ["#2a78d6", "#eb6834", "#1baf7a"]   # blue, orange, aqua (fixed order)
+COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]   # blue, orange, aqua, yellow (fixed order)
 
 
 def plot(results: dict[str, pd.DataFrame], path: Path) -> None:
@@ -185,20 +186,19 @@ def main() -> None:
 
     results = {name: run_backtest(pod(prices), returns) for name, pod in PODS.items()}
 
-    # Preview of the fund: split capital 50/50 across pods, every day.
-    # Step 4's allocator will replace this with something smarter.
+    # Preview of the fund: split capital equally across pods, every day,
+    # starting once every pod is trading. Step 4's allocator will replace
+    # this with something smarter.
     combo = sum(results.values()) / len(results)
-    results["50/50 combo"] = combo.dropna()
+    results["Equal-weight combo"] = combo.dropna()
 
     table = pd.DataFrame({name: summarize(res, market) for name, res in results.items()}).T
     print(format_table(table).to_string())
 
     pod_net = pd.DataFrame({name: res["net"] for name, res in results.items()
                             if name in PODS})
-    corr = pod_net.dropna().corr().iloc[0, 1] if len(PODS) == 2 else None
-    if corr is not None:
-        print(f"\nCorrelation of daily pod returns: {corr:+.2f}  "
-              "(lower = more diversification from combining them)")
+    print("\nCorrelation of daily pod returns (lower = more diversification):")
+    print(pod_net.dropna().corr().round(2).to_string())
 
     REPORTS.mkdir(exist_ok=True)
     pod_net.to_csv(REPORTS / "pod_returns.csv")
