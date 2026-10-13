@@ -40,13 +40,16 @@ The ML pod is trained **walk-forward**. At the start of each year a new model is
 
 ## The allocator and risk limits
 
-The allocator plays the role of a multi-manager fund's central risk team:
+The allocator plays the role of a multi-manager fund's central risk team. It is built around **risk budgets**: the pods naturally swing by different amounts, so a single loss limit would mean "a normal bad month" for a volatile pod and "something is broken" for a calm one. Like a real multi-manager fund, every pod is first resized to the same risk, and every rule is then set in units of that risk:
 
-- **Risk-parity allocation.** Each month, pods get capital in proportion to 1 / recent volatility, so each contributes similar risk. No pod gets more than 50%.
-- **Fund volatility target.** The whole book is scaled to an 8% annual volatility target, using the covariance between pods, with leverage capped at 3x.
-- **Pod drawdown limits.** A pod 5% below its peak has its capital halved, and gets it back only after recovering to within 2.5% of the peak. At 10% below its peak it is stopped out for 3 months.
+- **Risk budgets.** Each month, every pod is scaled to 10% annual volatility based on its last 6 months.
+- **Allocation.** Every live pod gets an equal share of the fund's risk, with no pod above 50%.
+- **Fund volatility target.** The whole fund is scaled to 8% annual volatility using the covariance between pods. Total gross exposure is capped at 3x capital.
+- **Pod drawdown limits**, in multiples of the 10% budget. At 0.75x the budget (−7.5% from peak) a pod's capital is halved, and it gets full capital back once it recovers to within 0.25x (−2.5%). At 1.5x (−15%) it is stopped out for 3 months, then restarted. These multiples were set once on principle and not tuned to the backtest, which would only fit the past.
 - **Single-stock limit.** The fund's combined position in any one stock is capped at 10% of capital.
 - **Netting.** All pods' positions are summed into one book before trading, so offsetting trades between pods cancel out. The fund reports the cost this saves.
+
+The fund is also run with the drawdown limits switched off, so the report shows exactly what the limits add.
 
 ## Results so far
 
@@ -70,7 +73,7 @@ Correlation of daily returns: momentum vs ML −0.21, momentum vs mean reversion
 - **The ML pod is the strongest** and diversifies momentum (negative correlation), so it adds something the hand-built signals don't.
 - **Mean reversion has a small edge that trading costs destroy.** It is roughly flat before costs, but turning over 81x its capital a year costs about 4%.
 - **Combining pods works as intended.** The equal-weight mix runs at about half the volatility of the individual pods.
-- **Fixed drawdown limits are too tight for these pods.** In an early test of the allocator, pods swinging 9–12% a year hit a flat −10% stop-out repeatedly, cutting them near their lows and missing the recoveries. Calibrating limits to each pod's own volatility is the next step.
+- **Risk limits have to be calibrated to each pod's volatility.** A first version used a flat −10% stop-out for every pod. Pods swinging 9–12% a year hit it 17 times, cutting them near their lows and missing the recoveries, which made the fund worse than no limits at all. The allocator now uses risk budgets instead, so a stop-out means a pod is doing unusually badly for itself, not just having a normal bad month.
 
 ## Avoiding look-ahead bias
 
@@ -90,7 +93,7 @@ A backtest is only useful if it never uses information it couldn't have had. Thi
 
 ## Next steps
 
-- Scale pod drawdown limits to each pod's volatility
+- Cut the mean-reversion pod's trading costs (trade less often, or only when the signal is strong)
 - Make pods beta-neutral, not just dollar-neutral
 - Add a fourth, non-price pod (for example an earnings or value signal)
 
